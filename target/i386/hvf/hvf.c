@@ -564,16 +564,20 @@ int hvf_vcpu_exec(CPUState *cpu)
             uint32_t eax = (uint32_t)rreg(cpu->accel->fd, HV_X86_RAX);
             uint32_t ecx = (uint32_t)rreg(cpu->accel->fd, HV_X86_RCX);
             uint32_t edx = (uint32_t)rreg(cpu->accel->fd, HV_X86_RDX);
-
+        
+            // Always set bit 0 of XCR0
+            uint64_t xcr0 = ((uint64_t)edx << 32) | eax;
+            xcr0 |= 1;
+        
             if (ecx) {
                 macvm_set_rip(cpu, rip + ins_len);
-                break;
+            } else {
+                wreg(cpu->accel->fd, HV_X86_XCR0, xcr0);
+                macvm_set_rip(cpu, rip + ins_len);
             }
-            env->xcr0 = ((uint64_t)edx << 32) | eax;
-            wreg(cpu->accel->fd, HV_X86_XCR0, env->xcr0 | 1);
-            macvm_set_rip(cpu, rip + ins_len);
             break;
         }
+
         case EXIT_REASON_INTR_WINDOW:
             vmx_clear_int_window_exiting(cpu);
             ret = EXCP_INTERRUPT;
